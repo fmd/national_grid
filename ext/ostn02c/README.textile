@@ -1,0 +1,165 @@
+*This is a C implementation of Ordnance Survey's definitive transformation model "OSTN02":http://www.ordnancesurvey.co.uk/oswebsite/gps/osnetfreeservices/about/surveying_osnet.html#6 and Geoid model "OSGM02":http://www.ordnancesurvey.co.uk/oswebsite/gps/osnetfreeservices/about/surveying_osnet.html#7, with tests.*
+
+It's intended to power a future update of my "GridPoint GB":http://mackerron.com/gridpointgb/ iOS app. It also includes a simple command-line tool. 
+
+
+h2. Licence
+
+I'm releasing the code under the "MIT licence":http://www.opensource.org/licenses/mit-license.php (note, however, that OSTN02 and OSGM02 are trademarks of Ordnance Survey, and that the OSTN02 and OSGM02 data are © Crown copyright 2002. All rights reserved).
+
+
+h2. Installing the command-line tool
+
+h3. For Mac
+
+You can "download a binary for Mac OS X 10.4+, Intel 32/64-bit":http://jawj.github.com/OSTN02C/ostn02c.bz2. You'll need to uncompress, @chmod +x@ and @mv@ this somewhere appropriate.
+
+Alternatively, use "Homebrew":http://mxcl.github.com/homebrew/. In Terminal.app, type:
+
+@brew install http://jawj.github.com/OSTN02C/ostn02c.rb@
+
+h3. From source
+
+Otherwise, with the relevant build tools installed -- Xcode on the Mac, @sudo aptitude install build-essential@ on Debian/Ubuntu, etc. -- download or clone the source to your machine, and compile like so:
+
+@gcc OSTN02/*.c -std=gnu99 -D_GNU_SOURCE -lm -Wall -O2 -o ostn02c@
+
+To compile with long double precision arithmetic (not recommended, since the outputs are the same to within 1mm), add the option @-DUSE_LONG@. To suppress fancy formatting (bold/inverse/underlined) in the tool's output, add the option @-DUNFANCY_OUTPUT@.
+
+
+h2. Using the command-line tool
+
+The command-line tool works like this:
+
+bc.. dyn204:OSTN02 George$ ostn02c help
+
+OSTN02C -- https://github.com/jawj/OSTN02C -- Built Feb 14 2012 11:53:48 (double precision)
+
+This tool converts coordinates between ETRS89 (WGS84, GPS) lat/lon/elevation and OSGB36 easting/northing/elevation.
+Conversions make use of Ordnance Survey's OSTN02 and OSGM02 transformations, and should thus be accurate to within 1m.
+
+Usage: ostn02c gps-to-grid [lat lon elevation] converts ETRS89 to OSGB36
+       ostn02c grid-to-gps [easting northing elevation] converts OSGB36 to ETRS89
+       ostn02c list-geoids lists the geoid datum flags, names and regions
+       ostn02c test checks embedded data integrity and runs conversion tests with known coordinates
+       ostn02c help displays this message
+
+The conversion commands gps-to-grid and grid-to-gps can be used in two ways:
+* Given a set of coordinates as command-line arguments, they will convert this set with user-friendly output
+* Given no command-line arguments, they will convert batches of coordinates, reading from STDIN and writing to STDOUT
+
+In the batch conversion case:
+* Input rows must have 3 columns -- lat or easting, lon or northing, elevation -- with any reasonable separator (,;:| \t)
+* Output rows have 4 columns -- easting or lat, northing or lon, elevation, geoid datum flag -- separated with tabs
+* In case of out-of-range input coordinates, all output columns will be zero
+* Malformatted input terminates processing and results in a non-zero exit code
+
+Software copyright (c) George MacKerron 2012 (http://mackerron.com)
+Released under the MIT licence (http://www.opensource.org/licenses/mit-license.php)
+
+OSTN02 and OSGM02 are trademarks of Ordnance Survey
+Embedded OSTN02 and OSGM02 data (c) Crown copyright 2002. All rights reserved.
+
+
+dyn204:OSTN02 George$ ostn02c gps-to-grid 51.0 -0.5 100.0
+
+ETRS89 in  lat:   51.000000, lon:   -0.500000, elevation:  100.000
+OSGB36 out   E:  505349.663,   N:  123360.984, elevation:   54.635 (UK mainland / Newlyn)
+
+
+dyn204:OSTN02 George$ ostn02c grid-to-gps 505349.663 123360.984 54.635
+
+OSGB36 in    E:  505349.663,   N:  123360.984, elevation:   54.635 (UK mainland / Newlyn)
+ETRS89 out lat:   51.000000, lon:   -0.500000, elevation:  100.000
+
+
+dyn204:OSTN02 George$ echo "51.0, -0.5, 100.0
+> 51.5, -1.0, 50.0" | ostn02c gps-to-grid
+505349.663	123360.984	54.635	1
+469509.184	178369.364	3.360	1
+
+dyn204:OSTN02 George$ echo $?
+0
+
+
+dyn204:OSTN02 George$ echo "51.0, -0.5, 100.0
+> 20.0 40.0 0.0
+> an invalid line
+> 51.5, -1.0, 50.0" | ostn02c gps-to-grid
+505349.663	123360.984	54.635	1
+0.000	0.000	0.000	0
+
+dyn204:OSTN02 George$ echo $?
+1
+
+
+dyn204:OSTN02 George$ ostn02c list-geoids
+
+Flag  Datum          Region
+   0  N/A            Outside model boundary
+   1  Newlyn         UK mainland
+   2  St Marys       Scilly Isles
+   3  Douglas02      Isle of Man
+   4  Stornoway      Outer Hebrides
+   5  St Kilda       St Kilda
+   6  Lerwick        Shetland Isles
+   7  Newlyn         Orkney Isles
+   8  Fair Isle      Fair Isle
+   9  Flannan Isles  Flannan Isles
+  10  North Rona     North Rona
+  11  Sule Skerry    Sule Skerry
+  12  Foula          Foula
+  13  Malin Head     Republic of Ireland
+  14  Belfast        Northern Ireland
+  
+  
+dyn204:OSTN02 George$ ostn02c test
+
+Original CRC32 (data):  790474494
+Computed CRC32 (data):  790474494
+
+Original CRC32 (index): 244629328
+Computed CRC32 (index): 244629328
+
+ETRS89 actual   lat:   53.779110, lon:   -3.040455, elevation:   64.940
+OSGB36 actual     E:  331534.552,   N:  431920.792, elevation:   12.636 (UK mainland / Newlyn)
+ETRS89 computed lat:   53.779110, lon:   -3.040455, elevation:   64.940
+OSGB36 computed   E:  331534.552,   N:  431920.792, elevation:   12.636 (UK mainland / Newlyn)
+
+ETRS89 actual   lat:   51.427547, lon:   -2.544076, elevation:  104.018
+OSGB36 actual     E:  362269.979,   N:  169978.688, elevation:   54.467 (UK mainland / Newlyn)
+ETRS89 computed lat:   51.427547, lon:   -2.544076, elevation:  104.018
+OSGB36 computed   E:  362269.979,   N:  169978.688, elevation:   54.467 (UK mainland / Newlyn)
+
+[...]
+
+ETRS89 actual   lat:  -51.000000, lon:  180.000000, elevation:  100.000
+OSGB36 actual     E:       0.000,   N:       0.000, elevation:    0.000 (Outside model boundary / N/A)
+OSGB36 computed   E:       0.000,   N:       0.000, elevation:    0.000 (Outside model boundary / N/A)
+
+ETRS89 actual   lat:    0.000000, lon:    0.000000, elevation:  100.000
+OSGB36 actual     E:       0.000,   N:       0.000, elevation:    0.000 (Outside model boundary / N/A)
+OSGB36 computed   E:       0.000,   N:       0.000, elevation:    0.000 (Outside model boundary / N/A)
+
+92 tests; 92 passed; 0 failed
+
+
+
+h3. Output buffering
+
+If you're using the command line tool from another script (e.g. from Ruby or Python), alternately writing coordinates to its STDIN and reading the converted results from its STDOUT, you'll need to ensure that your I/O isn't being buffered. 
+
+To help with this, the tool checks for an environment variable named OSTN02C_LINE_BUFFERED, and does buffering at line level only (i.e. output is flushed after every newline character) if it's set.
+
+As an example, you can use this snippet to convert WGS84 to OSGB36 in Ruby:
+
+bc. @ostn02 = IO.popen([{'OSTN02C_LINE_BUFFERED' => 'Y'}, 'ostn02c', 'gps-to-grid'], 'r+')
+@ostn02.sync = true  # this is actually the default on my system
+def ll_to_en(lat, lon, elev)
+  @ostn02.puts "#{lat} #{lon} #{elev}"
+  osgb = @ostn02.gets.split("\t")
+  datum = osgb[3].to_i
+  return nil unless datum > 0
+  osgb[0..2].map(&:to_f)
+end
+
